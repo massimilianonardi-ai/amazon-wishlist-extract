@@ -135,13 +135,7 @@ jobs:
           ./rumiai-os/m pkg install nodejs
           ./rumiai-os/m pkg default nodejs
           ./rumiai-os/m pkg requirement list amazon-wishlist-extract@v0.1.0 > /tmp/amazon-wishlist-requirements
-          echo "---- Runtime catalog diagnostics ----"
-          git -C rumiai-os/state/system/current/sys/pkg/cache/catalog rev-parse HEAD || :
-          find rumiai-os/state/system/current/sys/pkg/cache/catalog/pkg/amazon-wishlist-extract -maxdepth 5 -type f -print || :
-          echo "---- Requirement output ----"
-          cat /tmp/amazon-wishlist-requirements
-          echo "---- Compare declared catalog metadata ----"
-          cat rumiai-os/state/system/current/sys/pkg/cache/catalog/pkg/amazon-wishlist-extract/all/n0001=v0.1.0/dependency || :
+          LC_ALL=C sort -c /tmp/amazon-wishlist-requirements
           grep -Fx 'web-control =2' /tmp/amazon-wishlist-requirements
           grep -Fx 'nodejs =26' /tmp/amazon-wishlist-requirements
           ./rumiai-os/m pkg install amazon-wishlist-extract@v0.1.0
