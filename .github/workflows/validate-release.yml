@@ -115,3 +115,39 @@ jobs:
             exit 0
           fi
           gh release create "$tag" artifacts/*.tar.gz --target "$GITHUB_SHA" --title "$tag" --generate-notes
+
+  pkg-integration:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-os
+          ref: 0c638074b0a031d7f75d62bf464faf2c0a272ef0
+          path: rumiai-os
+      - name: Install released package through real pkg
+        shell: bash
+        run: |
+          set -e
+          ./rumiai-os/m osarch update
+          ./rumiai-os/m pkg install nodejs
+          ./rumiai-os/m pkg default nodejs
+          ./rumiai-os/m pkg requirement list amazon-wishlist-extract@v0.1.0 > /tmp/amazon-wishlist-requirements
+          grep -Fx 'web-control =2' /tmp/amazon-wishlist-requirements
+          grep -Fx 'nodejs =26' /tmp/amazon-wishlist-requirements
+          ./rumiai-os/m pkg install amazon-wishlist-extract@v0.1.0
+          ./rumiai-os/m pkg default amazon-wishlist-extract
+          ./rumiai-os/m pkg install electron-web-control@v0.1.4
+          ./rumiai-os/m pkg provider default web-control electron-web-control@v0.1.4
+          ./rumiai-os/m pkg requirement resolve web-control '=2'
+          test -L rumiai-os/bin/ext/amazon-wishlist-extract
+          set +e
+          ./rumiai-os/m amazon-wishlist-extract >/tmp/amazon-extract-no-args.out 2>/tmp/amazon-extract-no-args.err
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -F 'usage: amazon-wishlist-extract' /tmp/amazon-extract-no-args.err
+          test ! -s /tmp/amazon-extract-no-args.out
+          echo 'amazon-wishlist-extract v0.1.0 real pkg installation and launcher: PASS'
