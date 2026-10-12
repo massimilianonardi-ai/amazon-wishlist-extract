@@ -11,7 +11,10 @@ const WEB_CONTROL = process.env.WEB_CONTROL_CMD || 'web-control';
 const WISHLIST_URL = process.argv[2];
 if (!WISHLIST_URL) throw new TypeError('usage: amazon-wishlist-extract <Amazon.it wishlist URL>');
 const validatedUrl = new URL(WISHLIST_URL);
-if (!/(^|\.)amazon\.it$/i.test(validatedUrl.hostname) && !process.env.AMAZON_TEST_ORIGIN || !/^\/hz\/wishlist\/ls(?:\/|$)/i.test(validatedUrl.pathname)) {
+const allowedAmazon = validatedUrl.protocol === 'https:' && /(^|\.)amazon\.it$/i.test(validatedUrl.hostname);
+const testOrigin = process.env.AMAZON_TEST_ORIGIN;
+const allowedFixture = testOrigin && /^http:\/\/127\.0\.0\.1:\d+$/.test(testOrigin) && validatedUrl.origin === testOrigin;
+if ((!allowedAmazon && !allowedFixture) || !/^\/hz\/wishlist\/ls(?:\/|$)/i.test(validatedUrl.pathname)) {
   throw new TypeError('wishlist URL must identify an Amazon.it wishlist');
 }
 const WAIT_MS = positiveInt('AMAZON_SCROLL_WAIT_MS', 1500);

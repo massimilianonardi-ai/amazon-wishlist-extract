@@ -51,7 +51,7 @@ else { process.stderr.write('unexpected common web-control command\n');process.e
 try {
   await writeFile(mockPath,mock,'utf8');await chmod(mockPath,0o700);
   function run(overrides,expectedStatus) {
-    const result=spawnSync(process.execPath,[probePath],{
+    const result=spawnSync(process.execPath,[probePath, 'https://www.amazon.it/hz/wishlist/ls/TEST'],{
       encoding:'utf8',timeout:15000,env:{...process.env,WEB_CONTROL_CMD:mockPath,
         AMAZON_SCROLL_WAIT_MS:'1',AMAZON_STABLE_ROUNDS:'2',AMAZON_MAX_ROUNDS:'5',...overrides}
     });
