@@ -1,0 +1,116 @@
+{
+  "version": 2,
+  "goals": {
+    "check": [
+      "check-api",
+      "check-probe",
+      "check-parser",
+      "check-cli",
+      "check-test",
+      "check-build"
+    ],
+    "test": [
+      "test"
+    ],
+    "build": [
+      "build-release"
+    ]
+  },
+  "operations": {
+    "check-api": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "src/amazon-wishlist-extract.mjs"
+        ]
+      }
+    },
+    "check-probe": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "src/probe.mjs"
+        ]
+      }
+    },
+    "check-parser": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "src/wishlist-html.mjs"
+        ]
+      }
+    },
+    "check-cli": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "tests/test-api.mjs"
+        ]
+      }
+    },
+    "check-test": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "tests/test-probe.mjs"
+        ]
+      }
+    },
+    "check-build": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "scripts/build-release.mjs"
+        ]
+      }
+    },
+    "test": {
+      "prerequisites": [
+        "check-api",
+        "check-probe",
+        "check-parser",
+        "check-test",
+        "check-cli"
+      ],
+      "action": {
+        "type": "process",
+        "command": "npm",
+        "args": [
+          "test"
+        ]
+      }
+    },
+    "build-release": {
+      "prerequisites": [
+        "test",
+        "check-build"
+      ],
+      "outputs": {
+        "artifact": {
+          "path": "dist/release-artifact"
+        }
+      },
+      "action": {
+        "type": "process",
+        "command": "npm",
+        "args": [
+          "run",
+          "build"
+        ]
+      }
+    }
+  }
+}

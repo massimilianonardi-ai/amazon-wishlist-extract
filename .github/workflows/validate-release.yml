@@ -1,0 +1,117 @@
+name: validate and release Amazon wishlist extractor
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-os
+          ref: 0c638074b0a031d7f75d62bf464faf2c0a272ef0
+          path: rumiai-os
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - name: Install pinned parser
+        run: npm install --no-audit --no-fund
+      - name: Prepare the canonical mk runtime
+        run: |
+          cp -a rumiai-os "$RUNNER_TEMP/rumiai-os"
+          "$RUNNER_TEMP/rumiai-os/m" osarch update
+          "$RUNNER_TEMP/rumiai-os/m" pkg install nodejs
+          "$RUNNER_TEMP/rumiai-os/m" pkg default nodejs
+      - name: Canonical check test build
+        run: '"$RUNNER_TEMP/rumiai-os/m" mk --project "$PWD" check test build'
+      - name: Inspect portable archive
+        run: |
+          test -s dist/release-artifact
+          test -s dist/amazon-wishlist-extract-v0.1.0-all.tar.gz
+          tar -tzf dist/amazon-wishlist-extract-v0.1.0-all.tar.gz > /tmp/wishlist-files
+          grep -Fx 'amazon-wishlist-extract/bin/amazon-wishlist-extract' /tmp/wishlist-files
+          grep -Fx 'amazon-wishlist-extract/src/probe.mjs' /tmp/wishlist-files
+          grep -Fx 'amazon-wishlist-extract/node_modules/cheerio/package.json' /tmp/wishlist-files
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amazon-wishlist-extract-all
+          path: dist/amazon-wishlist-extract-v*-all.tar.gz
+          if-no-files-found: error
+
+  electron-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/electron-web-control
+          ref: 7012c364beb3d082754cd1eeb23f904750cde9c0
+          path: electron-web-control
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - name: Install exact project and Electron dependencies
+        run: |
+          npm install --no-audit --no-fund
+          (cd electron-web-control && npm install --no-audit --no-fund)
+      - name: Configure disposable Chromium sandbox and window manager
+        run: |
+          binary=$(cd electron-web-control && node -p "require('electron')" | tail -n 1)
+          helper="electron-web-control/$(dirname "$binary")/chrome-sandbox"
+          test -f "$helper"
+          sudo chown root:root "$helper"
+          sudo chmod 4755 "$helper"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends openbox
+      - name: Run full CLI through real Electron and lazy-loaded fixture
+        run: |
+          xvfb-run -a bash -c '
+            openbox >/tmp/amazon-wishlist-openbox.log 2>&1 &
+            wm=$!
+            trap "kill $wm 2>/dev/null || :" EXIT
+            sleep 1
+            ELECTRON_WEB_CONTROL_SOURCE="$PWD/electron-web-control" node tests/test-electron-integration.mjs
+          '
+
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [linux, electron-integration, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: amazon-wishlist-extract-all
+          path: artifacts
+      - name: Publish immutable version if not already released
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release $tag exists; no overwrite"
+            exit 0
+          fi
+          gh release create "$tag" artifacts/*.tar.gz --target "$GITHUB_SHA" --title "$tag" --generate-notes
