@@ -138,6 +138,7 @@ jobs:
           LC_ALL=C sort -c /tmp/amazon-wishlist-requirements
           grep -Fx 'web-control =2' /tmp/amazon-wishlist-requirements
           grep -Fx 'nodejs =26' /tmp/amazon-wishlist-requirements
+          test ! -x rumiai-os/state/system/current/sys/pkg/cache/catalog/pkg/amazon-wishlist-extract/all/n0001=v0.1.0/cmd/amazon-wishlist-extract
           # Multiple providers realize web-control 2. Select the user's
           # intended provider before installing its consumer; never pick one silently.
           ./rumiai-os/m pkg install electron-web-control@v0.1.4
